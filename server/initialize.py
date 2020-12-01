@@ -1,5 +1,8 @@
 from treemodel.tree import Tree
 
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+
 def init_tree():
     # choose which classifier model to use for the tree
     # models from scikit-learn should work out of the box
@@ -19,9 +22,9 @@ def init_tree():
     # TODO: look into maybe trying 3 different classifiers (naive bayes, SVC, random forests classifier).
     # can also try more but need to get this show on the road!
 
-    model = None
-    model_params = None
+    model = SVC
+    model_params = {'gamma':2, 'C':1}
 
-    recommendation_tree = Tree(model, model_params)
+    recommendation_tree = Tree(model, **model_params)
 
     return recommendation_tree

@@ -3,6 +3,7 @@ tokens.jsonc
 pca_reduce.pkl
 explr.ipynb
 .ipynb_checkpoints
+test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

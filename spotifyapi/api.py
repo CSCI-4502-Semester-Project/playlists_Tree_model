@@ -179,8 +179,8 @@ def playlist_track_ids(playlist_id, authorizer, verbose=False):
     Returns:
         [list, None]: Returns a list of all non-None track ID's in the playlist. Returns None if request failed.
     """
-    spotify_endpoint = 'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
-    params = {'fields':'items(track(id)),total'} # only get id's of tracks, and total number of tracks in playlist
+    spotify_endpoint = f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
+    params = {'fields':'items(track(id)),next,total'} # only get id's of tracks, and total number of tracks in playlist
     headers = {"Accept":"application/json", "Content-Type":"application/json", "Authorization": "Bearer {bearer}".format(bearer=authorizer.bearer)}
 
     tracks = None

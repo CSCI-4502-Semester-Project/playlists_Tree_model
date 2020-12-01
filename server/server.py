@@ -10,18 +10,17 @@ import pickle as pk
 from spotifyapi.authorization import SpotifyAuth
 import spotifyapi.api as spotify_api
 
-# recommendation system
-from initialize import init_tree
-recommendation_tree = None
-pca_reducer = None
-
 # data processing
-from processing import process_features
+from server.processing import process_features
+
+# recommendation system
+from server.initialize import init_tree
+recommendation_tree, pca_reducer = None, None
 
 # objects for server handling
 app_server = Flask(__name__)
-server_thread, kill_thread, auth = None, None, None
 kill_serv = threading.Event()
+server_thread, kill_thread, auth, config = None, None, None, None
 
 
 #
@@ -47,14 +46,9 @@ def kill_server():
 
 @app_server.route('/recommendation/')
 def playlist_recommendation():
-    # pretty much the exact same as push, but has return flag set true.
-    pass
-
-@app_server.route('/push/')
-def playlist_push():
-    error = None
-    if request.method == 'POST':
-        if isinstance(request.form['playlist'], str):
+    # pretty much exact same thing as push, but with return flag set true for recommendation tree
+    if request.method == 'GET':
+        if isinstance(request.args.get('playlist'), str):
             # if the request is a string then assume it is a playlist id
             # in that case we either need to 
             #   1) poll spotify for the tracks / features
@@ -63,24 +57,152 @@ def playlist_push():
             # it is probably easier to just poll spotify for the relevant data
             # only load from disk if it is from the 1_million playlists dataset
 
-            playlist_id = request.form['playlist']
+            playlist_id = request.args.get('playlist')
 
             # check if a '1mil' playlist
             if playlist_id[0:2] == 'm_':
-                # TODO: implement loading tracks from disk
-                pass
+                src = config['playlist_source']
+                track_ids = None
+                try:
+                    f = open(f'{src}{playlist_id}.INDEX', 'r')
+                    num_tracks = int(f.readline())
+                    track_ids = ['']*num_tracks
+                    for i, t in enumerate(f.readlines()):
+                        track_ids[i] = t
+                    f.close()
+                except:
+                    return {
+                        'type': 'recommend',
+                        'ret': 'Could not find non-Spotify Playlist in database.'
+                    }, 404
+                
+                track_features = spotify_api.track_features(track_ids, auth)
+                if track_features is None:
+                    print(f'Track Features Error with Spotify API.')                    
+                    return {
+                        'type': 'recommend',
+                        'ret': 'Bad Track Features.'
+                    }, 400
+
+                data = process_features(track_features)
+                reduced_data = pca_reducer.transform(data)
+                recommendation = recommendation_tree.push(reduced_data, playlist_id, ret=True)
+
+                return {
+                    'type': 'recommend',
+                    'ret': recommendation
+                }, 200        
             else:
                 track_ids = spotify_api.playlist_track_ids(playlist_id, auth)
+                if track_ids is None:
+                    print(f'Track IDs Error with Spotify API. Playlist ID = {playlist_id}')
+                    return {
+                        'type': 'recommend',
+                        'ret': 'Bad Track IDs.'
+                    }, 400
+
                 track_features = spotify_api.track_features(track_ids, auth)
+                if track_features is None:
+                    print(f'Track Features Error with Spotify API.')                    
+                    return {
+                        'type': 'recommend',
+                        'ret': 'Bad Track Features.'
+                    }, 400
+
                 data = process_features(track_features)
-
                 reduced_data = pca_reducer.transform(data)
+                recommendation = recommendation_tree.push(reduced_data, playlist_id, ret=True)
 
-                recommendation_tree.push(reduced_data, playlist_id, ret=False)
+                return {
+                    'type': 'recommend',
+                    'ret': recommendation
+                }, 200
         else:
-            # error, only accepting playlist id's, not raw tracks or track features. Too lazy to implement
-            # TODO: implement error handling
-            pass
+            # error, only accepting playlist id's, not raw tracks or track features. Not enough time to implement
+            return {
+                'type': 'recommend',
+                'ret': 'Only Accepting Playlist ID\'s.'
+            }, 400
+    
+@app_server.route('/push/')
+def playlist_push():
+    if request.method == 'GET':
+        if isinstance(request.args.get('playlist'), str):
+            # if the request is a string then assume it is a playlist id
+            # in that case we either need to 
+            #   1) poll spotify for the tracks / features
+            #   2) or load up tracks from disk and poll spotify for features
+            #   
+            # it is probably easier to just poll spotify for the relevant data
+            # only load from disk if it is from the 1_million playlists dataset
+
+            playlist_id = request.args.get('playlist')
+
+            # check if a '1mil' playlist
+            if playlist_id[0:2] == 'm_':
+                src = config['playlist_source']
+                track_ids = None
+                try:
+                    f = open(f'{src}{playlist_id}.INDEX', 'r')
+                    num_tracks = int(f.readline())
+                    track_ids = ['']*num_tracks
+                    for i, t in enumerate(f.readlines()):
+                        track_ids[i] = t
+                    f.close()
+                except:
+                    return {
+                        'type': 'push',
+                        'ret': 'Could not find non-Spotify Playlist in database.'
+                    }, 404
+                
+                track_features = spotify_api.track_features(track_ids, auth)
+                if track_features is None:
+                    print(f'Track Features Error with Spotify API.')                    
+                    return {
+                        'type': 'push',
+                        'ret': 'Bad Track Features.'
+                    }, 400
+
+                data = process_features(track_features)
+                reduced_data = pca_reducer.transform(data)
+                recommendation_tree.push(reduced_data, playlist_id, ret=False)
+
+                return {
+                    'type': 'push',
+                    'ret': None
+                }, 200          
+            else:
+                track_ids = spotify_api.playlist_track_ids(playlist_id, auth)
+                if track_ids is None:
+                    print(f'Track IDs Error with Spotify API. Playlist ID = {playlist_id}')
+                    return {
+                        'type': 'push',
+                        'ret': 'Bad Track IDs.'
+                    }, 400
+
+                track_features = spotify_api.track_features(track_ids, auth)
+                if track_features is None:
+                    print(f'Track Features Error with Spotify API.')                    
+                    return {
+                        'type': 'push',
+                        'ret': 'Bad Track Features.'
+                    }, 400
+
+                data = process_features(track_features)
+                reduced_data = pca_reducer.transform(data)
+                recommendation_tree.push(reduced_data, playlist_id, ret=False)
+
+                return {
+                    'type': 'push',
+                    'ret': None
+                }, 200
+        else:
+            # error, only accepting playlist id's, not raw tracks or track features. Not enough time to implement
+            return {
+                'type': 'push',
+                'ret': 'Only Accepting Playlist ID\'s.'
+            }, 400
+
 
 #
 # Helper server and authorization functions
@@ -109,7 +231,7 @@ def killer():
 #
 
 def main():
-    global auth, recommendation_tree, pca_reducer
+    global config, auth, recommendation_tree, pca_reducer
     
     config = load_config()['server']
 
@@ -126,7 +248,7 @@ def main():
     auth.authorize()
 
     # load dimensionality reducer
-    pca_reducer = pk.load(open('pca_recude.pkl', 'rb'))
+    pca_reducer = pk.load(open('pca_reduce.pkl', 'rb'))
 
     # recommendation tree
     recommendation_tree = init_tree()

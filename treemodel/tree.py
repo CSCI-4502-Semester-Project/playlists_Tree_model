@@ -25,49 +25,68 @@ class Tree():
             return
         
         current = self.head
-        parent_branch = 0
+        parent_branch = -1
 
         while not current.is_leaf():
 
-            # TODO: see if classify can handle a bunch of points, rather than just one off points
-            branch = current.elem.classify(data)
+            branch = np.average(current.elem.predict(data))
 
-            if branch == -1:
+            if branch < 0.5:
                 current = current.left
-                parent_branch = -1
-            elif branch == 1:
+                parent_branch = 0
+            else:
                 current = current.right
                 parent_branch = 1
         
         # since we've hit a leaf node we have a recommended playlist
         # need to create a new classifier to distinguish between the 
-        new_classifier = self.model(kwargs=self.model_args)
+        new_classifier = self.model(**self.model_args)
 
         # format data to be classified
-        # all data passed in should be a 
-        X = np.array([current.elem, data], dtype=np.float64)
-        y = np.array([-1, 1], dtype=np.float64)
+
+        # attempt to fix class imbalances
+        # take a random sample from the larger class so that the sample size is the same size as smaller class
+
+        # determine which playlist to sample
+        small, sample = ((current.elem , 'l'), (data, 'r')) if current.elem.shape[0] < data.shape[0] else ((data, 'r'), (current.elem, 'l'))
+        N = small[0].shape[0]
+        # only sample if they are not the same size
+        sample = (sample[0][np.random.choice(a=sample[0].shape[0], size=N, replace=False), :], sample[1]) if N != sample[0].shape[0] else sample
+
+        # determine order to concatenate based on if it should be the right or left node
+        # this way we can put the correct full size playlist dataset with the correct node and not continually truncate data
+        # in this case, the left branch data (from current.elem) always goes first and is associated with '0' in y array
+        x_concat = (small[0], sample[0]) if small[1] == 'l' else (sample[0], small[0])
+
+        X = np.concatenate(x_concat)
+        y = np.concatenate((np.zeros(N), np.ones(N)))
 
         # train new classifier
         new_classifier.fit(X, y)
 
         # create new nodes for the tree
         classifier_node = TreeNode(elem=new_classifier, label=None)
-        new_playlist_node = TreeNode(elem=data, label='')
+        new_playlist_node = TreeNode(elem=data, label=label)
 
         # set the classifier nodes branches to is respective classification
         classifier_node.left = current
         classifier_node.right = new_playlist_node
 
         # update the parent classifier node's correct branch
-        if parent_branch == -1:
+        # also update the new classifiers parent node to be the current node's parent
+        if parent_branch == 0:
             current.parent.left = classifier_node
+            classifier_node.parent = current.parent
         elif parent_branch == 1:
             current.parent.right = classifier_node
+            classifier_node.parent = current.parent
+        else:
+            self.head = classifier_node # no parent, which means it is the head
+
+        # update parent of the data nodes
+        current.parent = classifier_node
+        new_playlist_node.parent = classifier_node
 
         # if the return flag is set, return recommended playlist name
-        return current.elem.label if ret else None
-        
-        
-        
+        return current.label if ret else None
         
