@@ -29,6 +29,10 @@ def get_user_profile(user_id, authorizer, verbose=False):
         elif response.status_code == 404:
             print('Error. User {user_id} not found.'.format(user_id=user_id))
             return None
+        elif response.status_code == 401:
+            print('Access token expired, refreshing...')
+            authorizer.refresh()
+            headers = {"Accept":"application/json", "Content-Type":"application/json", "Authorization": "Bearer {bearer}".format(bearer=authorizer.bearer)}
         else:
             print('Error %d' % response.status_code)
             if verbose:
@@ -75,6 +79,10 @@ def get_user_playlists(user_id, authorizer, verbose=False):
         elif response.status_code == 404:
             print('Error. User {user_id} not found.'.format(user_id=user_id))
             return None
+        elif response.status_code == 401:
+            print('Access token expired, refreshing...')
+            authorizer.refresh()
+            headers = {"Accept":"application/json", "Content-Type":"application/json", "Authorization": "Bearer {bearer}".format(bearer=authorizer.bearer)}
         else:
             print('Error %d' % response.status_code)
             if verbose:
@@ -119,6 +127,10 @@ def track_indexes(track_out, authorizer, verbose=False):
             if verbose:
                 print('Warning {}: Problem with getting tracks from playlists, verify url {} is correct.'.format(response.status_code, href))
             return None
+        elif response.status_code == 401:
+            print('Access token expired, refreshing...')
+            authorizer.refresh()
+            headers = {"Accept":"application/json", "Content-Type":"application/json", "Authorization": "Bearer {bearer}".format(bearer=authorizer.bearer)}
         else:
             print('Error %d' % response.status_code)
             if verbose:
@@ -159,6 +171,10 @@ def track_features(tracks, authorizer, verbose=False):
             limit = int(response.headers['Retry-After'])
             print('Hit rate limit, waiting for {} seconds to continue'.format(limit))
             time.sleep(limit)
+        elif response.status_code == 401:
+            print('Access token expired, refreshing...')
+            authorizer.refresh()
+            headers = {"Accept":"application/json", "Content-Type":"application/json", "Authorization": "Bearer {bearer}".format(bearer=authorizer.bearer)}
         else:
             print('Error %d' % response.status_code)
             if verbose:
@@ -209,6 +225,9 @@ def playlist_track_ids(playlist_id, authorizer, verbose=False):
             limit = int(response.headers['Retry-After'])
             print('Hit rate limit, waiting for {} seconds to continue'.format(limit))
             time.sleep(limit)
+        elif response.status_code == 401:
+            print('Access token expired, refreshing...')
+            authorizer.refresh()
         else:
             print('Error %d' % response.status_code)
             if verbose:
