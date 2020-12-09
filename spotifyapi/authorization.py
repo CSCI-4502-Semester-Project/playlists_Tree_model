@@ -66,7 +66,8 @@ class SpotifyAuth():
         response = requests.post(spotify_endpoint, params=params, headers=headers)
         
         if response.status_code == 200:
-            return response.json()['access_token']
+            self.bearer = response.json()['access_token']
+            print('Refreshed Token...')
         else:
            print(response.text)
            return None
