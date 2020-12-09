@@ -13,7 +13,6 @@ def process_features(track_features):
     features = [f for _, f in track_features if f is not None]
     df = pd.DataFrame(features).drop(["type", "id", "uri", "track_href", "analysis_url"], axis=1)
 
-    # TODO: understnad what scaling does and see if we actually need it
     return pd.DataFrame(preprocessing.scale(df), columns=df.columns)
 
     

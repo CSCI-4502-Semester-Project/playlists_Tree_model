@@ -1,5 +1,4 @@
 import numpy as np
-import time
 
 class TreeNode():
     def __init__(self, elem, label):
@@ -26,10 +25,6 @@ class Tree():
         current = self.head
         parent_branch = -1
 
-        left_branches = 0
-        right_branches = 0
-        starttime = time.time()
-        conf = 0 # measure how `sure` it is of it's prediction. Closer to 0 or 1 is more confident. Closer to 0.5 less confident
         while not current.is_leaf():
 
             branch = np.average(current.elem.predict(data))
@@ -37,16 +32,10 @@ class Tree():
             if branch < 0.5:
                 current = current.left
                 parent_branch = 0
-                left_branches += 1
-                conf += abs(0.5 - branch)
             else:
                 current = current.right
                 parent_branch = 1
-                right_branches += 1
-                conf += abs(0.5 - branch)
-        total_branchtime = time.time() - starttime
-        avg_branch_time = 0 if left_branches + right_branches == 0 else total_branchtime / (left_branches + right_branches)
-        avg_conf = 0 if left_branches + right_branches == 0 else conf / (left_branches + right_branches)
+
         # since we've hit a leaf node we have a recommended playlist
         # need to create a new classifier to distinguish between the 
         new_classifier = self.model(**self.model_args)
@@ -71,9 +60,7 @@ class Tree():
         y = np.concatenate((np.zeros(N), np.ones(N)))
 
         # train new classifier
-        start_fit_time = time.time()
         new_classifier.fit(X, y)
-        fit_time = time.time() - start_fit_time
 
         # create new nodes for the tree
         classifier_node = TreeNode(elem=new_classifier, label=None)
@@ -100,7 +87,5 @@ class Tree():
 
         # if the return flag is set, return recommended playlist name
 
-        score = new_classifier.score(X, y)
-
-        return current.label if ret else (score, fit_time, avg_branch_time, avg_conf, left_branches, right_branches)
+        return current.label if ret else None
         

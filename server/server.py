@@ -11,25 +11,11 @@ import time
 from spotifyapi.authorization import SpotifyAuth
 import spotifyapi.api as spotify_api
 
-# data processing
+# data processing and recommendation system
 from server.processing import process_features
-
-# recommendation system
-# from server.initialize import init_tree
-naive_bayes_tree = None
-svm_tree = None
-neural_net_tree = None
-random_forest_tree = None
+from server.initialize import init_tree
 
 pca_reducer = None
-
-from sklearn.neural_network import MLPClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from sklearn.naive_bayes import GaussianNB
-from treemodel.tree import Tree
 
 # objects for server handling
 app_server = Flask(__name__)
@@ -51,7 +37,6 @@ def auth_callback():
         return 'Authentication Failure'
 
     auth.get_tokens(auth_code)
-    auth.refresh()
     return 'Done authorizing, close tab...'
 
 @app_server.route('/kill/')
@@ -101,7 +86,7 @@ def playlist_recommendation():
 
                 data = process_features(track_features)
                 reduced_data = pca_reducer.transform(data)
-                recommendation = None # recommendation_tree.push(reduced_data, playlist_id, ret=True)
+                recommendation = recommendation_tree.push(reduced_data, playlist_id, ret=True)
 
                 return {
                     'type': 'recommend',
@@ -126,7 +111,7 @@ def playlist_recommendation():
 
                 data = process_features(track_features)
                 reduced_data = pca_reducer.transform(data)
-                recommendation = None # recommendation_tree.push(reduced_data, playlist_id, ret=True)
+                recommendation = recommendation_tree.push(reduced_data, playlist_id, ret=True)
 
                 return {
                     'type': 'recommend',
@@ -180,35 +165,7 @@ def playlist_push():
 
                 data = process_features(track_features)
                 reduced_data = pca_reducer.transform(data)
-
-                # starttime = time.time()
-                # data = naive_bayes_tree.push(reduced_data, playlist_id)
-                # elapsed = time.time() - starttime
-                # if data:
-                #     data = (elapsed, ) + data
-                #     log('NaiveBayes.csv', ', '.join(str(v) for v in data))
-
-
-                # starttime = time.time()
-                # data = svm_tree.push(reduced_data, playlist_id)
-                # elapsed = time.time() - starttime
-                # if data:
-                #     data = (elapsed, ) + data
-                #     log('SVM.csv', ', '.join(str(v) for v in data))
-
-                starttime = time.time()
-                data = neural_net_tree.push(reduced_data, playlist_id)
-                elapsed = time.time() - starttime
-                if data:
-                    data = (elapsed, ) + data
-                    log('NeuralNet.csv', ', '.join(str(v) for v in data))
-
-                starttime = time.time()
-                data = random_forest_tree.push(reduced_data, playlist_id)
-                elapsed = time.time() - starttime
-                if data:
-                    data = (elapsed, ) + data
-                    log('RandomForest.csv', ', '.join(str(v) for v in data))
+                recommendation_tree.push(reduced_data, playlist_id, ret=False)
 
                 return {
                     'type': 'push',
@@ -233,7 +190,7 @@ def playlist_push():
 
                 data = process_features(track_features)
                 reduced_data = pca_reducer.transform(data)
-                # recommendation_tree.push(reduced_data, playlist_id, ret=False)
+                recommendation_tree.push(reduced_data, playlist_id, ret=False)
 
                 return {
                     'type': 'push',
@@ -280,7 +237,7 @@ def killer():
 #
 
 def main():
-    global config, auth, naive_bayes_tree, svm_tree, neural_net_tree, decision_tree_tree, random_forest_tree, adaboost_tree, kneighbors_tree, pca_reducer
+    global config, auth, recommendation_tree, pca_reducer
     
     config = load_config()['server']
 
@@ -299,17 +256,8 @@ def main():
     # load dimensionality reducer
     pca_reducer = pk.load(open('pca_reduce.pkl', 'rb'))
 
-    # recommendation trees
-    # naive_bayes_tree = Tree(GaussianNB, **{})
-    # svm_tree = Tree(SVC, **{})
-    # neural_net_tree = Tree(MLPClassifier, **{'hidden_layer_sizes':(5, 5, 5), 'learning_rate_init':0.01, 'max_iter':1000})
-    # random_forest_tree = Tree(RandomForestClassifier, **{})
-
-
-    #log('NaiveBayes.csv', 'ElapsedTime, Score, FitTime, AvgBranchTime, AvgConf, LeftBranches, RightBranches')
-    #log('SVM.csv', 'ElapsedTime, Score, FitTime, AvgBranchTime, AvgConf, LeftBranches, RightBranches')
-    #log('NeuralNet.csv', 'ElapsedTime, Score, FitTime, AvgBranchTime, AvgConf, LeftBranches, RightBranches')
-    #log('RandomForest.csv', 'ElapsedTime, Score, FitTime, AvgBranchTime, AvgConf, LeftBranches, RightBranches')
+    # recommendation tree
+    recommendation_tree = init_tree()
 
 
 main() # get it done!

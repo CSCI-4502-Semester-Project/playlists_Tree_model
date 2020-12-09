@@ -18,12 +18,8 @@ def init_tree():
     #   model_params = {'kernel': 'sigmoid',
     #                   'tol': '1e-5'}
 
-
-    # TODO: look into maybe trying 3 different classifiers (naive bayes, SVC, random forests classifier).
-    # can also try more but need to get this show on the road!
-
-    model = SVC
-    model_params = {'gamma':2, 'C':1}
+    model = GaussianNB
+    model_params = {}
 
     recommendation_tree = Tree(model, **model_params)
 
